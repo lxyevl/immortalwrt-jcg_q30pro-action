@@ -78,6 +78,73 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
+        # -------------------------------------------------------------
+        # 写入指定的 110.5M UBI 分区表 (mtd5: 06e80000)
+        # -------------------------------------------------------------
+        DTS_FILE=$(find target/linux/mediatek/ -name "*jcg-q30-pro*.dts" -o -name "*jcg_q30-pro*.dts" | head -n 1)
+
+        if [ -n "$DTS_FILE" ]; then
+          echo "Replacing DTS partitions in: $DTS_FILE"
+          
+          # 清除原 DTS 中的 partitions 节点
+          sed -i '/partitions {/,/};/d' "$DTS_FILE"
+
+          # 写入与 mtd 1:1 对应的 DTS 结构
+          cat << 'EOF' >> "$DTS_FILE"
+
+&spi0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi_flash_pins>;
+
+	flash@0 {
+		compatible = "spi-nand";
+		reg = <0>;
+		spi-max-frequency = <52000000>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "BL2";
+				reg = <0x00000000 0x00100000>;
+				read-only;
+			};
+
+			partition@100000 {
+				label = "u-boot-env";
+				reg = <0x00100000 0x00080000>;
+			};
+
+			partition@180000 {
+				label = "Factory";
+				reg = <0x00180000 0x00200000>;
+				read-only;
+			};
+
+			partition@380000 {
+				label = "FIP";
+				reg = <0x00380000 0x00200000>;
+			};
+
+			partition@580000 {
+				label = "ubi";
+				reg = <0x00580000 0x06e80000>;
+			};
+		};
+	};
+};
+EOF
+        fi
+
+        # 修改 Makefile 中的最大镜像校验体积限制为 110.5M (113152k)
+        MAKEFILE=$(find target/linux/mediatek/image/ -name "filogic.mk" -o -name "mt7981.mk" | head -n 1)
+        if [ -n "$MAKEFILE" ]; then
+          sed -i 's/IMAGE_SIZE := .*/IMAGE_SIZE := 113152k/g' "$MAKEFILE"
+        fi
+
     - name: Download package
       id: package
       run: |
@@ -108,7 +175,6 @@ jobs:
       with:
         name: OpenWrt_firmware${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
-
 
     - name: Delete workflow runs
       uses: Mattraks/delete-workflow-runs@main
