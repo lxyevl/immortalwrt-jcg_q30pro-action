@@ -18,7 +18,7 @@ on:
 
 env:
   REPO_URL: https://github.com/chasey-dev/immortalwrt-mt798x-rebase.git
-  REPO_BRANCH: 25.12
+  REPO_BRANCH: '25.12'
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: mt7981-ax3000.config
   DIY_P1_SH: diy-part1.sh
@@ -78,68 +78,49 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
-        # -------------------------------------------------------------
-        # 写入指定的 110.5M UBI 分区表 (mtd5: 06e80000)
-        # -------------------------------------------------------------
         DTS_FILE=$(find target/linux/mediatek/ -name "*jcg-q30-pro*.dts" -o -name "*jcg_q30-pro*.dts" | head -n 1)
-
         if [ -n "$DTS_FILE" ]; then
           echo "Replacing DTS partitions in: $DTS_FILE"
-          
-          # 清除原 DTS 中的 partitions 节点
           sed -i '/partitions {/,/};/d' "$DTS_FILE"
-
-          # 写入与 mtd 1:1 对应的 DTS 结构
-          cat << 'EOF' >> "$DTS_FILE"
-
-&spi0 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&spi_flash_pins>;
-
-	flash@0 {
-		compatible = "spi-nand";
-		reg = <0>;
-		spi-max-frequency = <52000000>;
-
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			partition@0 {
-				label = "BL2";
-				reg = <0x00000000 0x00100000>;
-				read-only;
-			};
-
-			partition@100000 {
-				label = "u-boot-env";
-				reg = <0x00100000 0x00080000>;
-			};
-
-			partition@180000 {
-				label = "Factory";
-				reg = <0x00180000 0x00200000>;
-				read-only;
-			};
-
-			partition@380000 {
-				label = "FIP";
-				reg = <0x00380000 0x00200000>;
-			};
-
-			partition@580000 {
-				label = "ubi";
-				reg = <0x00580000 0x06e80000>;
-			};
-		};
-	};
-};
-EOF
+          echo '&spi0 {' >> "$DTS_FILE"
+          echo '	status = "okay";' >> "$DTS_FILE"
+          echo '	pinctrl-names = "default";' >> "$DTS_FILE"
+          echo '	pinctrl-0 = <&spi_flash_pins>;' >> "$DTS_FILE"
+          echo '	flash@0 {' >> "$DTS_FILE"
+          echo '		compatible = "spi-nand";' >> "$DTS_FILE"
+          echo '		reg = <0>;' >> "$DTS_FILE"
+          echo '		spi-max-frequency = <52000000>;' >> "$DTS_FILE"
+          echo '		partitions {' >> "$DTS_FILE"
+          echo '			compatible = "fixed-partitions";' >> "$DTS_FILE"
+          echo '			#address-cells = <1>;' >> "$DTS_FILE"
+          echo '			#size-cells = <1>;' >> "$DTS_FILE"
+          echo '			partition@0 {' >> "$DTS_FILE"
+          echo '				label = "BL2";' >> "$DTS_FILE"
+          echo '				reg = <0x00000000 0x00100000>;' >> "$DTS_FILE"
+          echo '				read-only;' >> "$DTS_FILE"
+          echo '			};' >> "$DTS_FILE"
+          echo '			partition@100000 {' >> "$DTS_FILE"
+          echo '				label = "u-boot-env";' >> "$DTS_FILE"
+          echo '				reg = <0x00100000 0x00080000>;' >> "$DTS_FILE"
+          echo '			};' >> "$DTS_FILE"
+          echo '			partition@180000 {' >> "$DTS_FILE"
+          echo '				label = "Factory";' >> "$DTS_FILE"
+          echo '				reg = <0x00180000 0x00200000>;' >> "$DTS_FILE"
+          echo '				read-only;' >> "$DTS_FILE"
+          echo '			};' >> "$DTS_FILE"
+          echo '			partition@380000 {' >> "$DTS_FILE"
+          echo '				label = "FIP";' >> "$DTS_FILE"
+          echo '				reg = <0x00380000 0x00200000>;' >> "$DTS_FILE"
+          echo '			};' >> "$DTS_FILE"
+          echo '			partition@580000 {' >> "$DTS_FILE"
+          echo '				label = "ubi";' >> "$DTS_FILE"
+          echo '				reg = <0x00580000 0x06e80000>;' >> "$DTS_FILE"
+          echo '			};' >> "$DTS_FILE"
+          echo '		};' >> "$DTS_FILE"
+          echo '	};' >> "$DTS_FILE"
+          echo '};' >> "$DTS_FILE"
         fi
 
-        # 修改 Makefile 中的最大镜像校验体积限制为 110.5M (113152k)
         MAKEFILE=$(find target/linux/mediatek/image/ -name "filogic.mk" -o -name "mt7981.mk" | head -n 1)
         if [ -n "$MAKEFILE" ]; then
           sed -i 's/IMAGE_SIZE := .*/IMAGE_SIZE := 113152k/g' "$MAKEFILE"
